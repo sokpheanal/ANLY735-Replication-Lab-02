@@ -19,82 +19,129 @@ csl: apa.csl
 
 **DOI/URL:** arXiv:2411.04832v3, 2026
 
-**Replication Type:** Partially
+**Replication Type:** Proxy (a controlled proxy replication of a phenomenon the survey synthesizes, not of an original experiment)
 
 **Computational Environment:** Python 3.12
 
-**Primary Packages:** NumPy 2.4, SciPy 1.17, Matplotlib 3.10, pandas 3.0
+**Primary Packages:** NumPy 2.4, pandas 3.0, Matplotlib 3.10
 
-**Random Seed:** Not applicable (the mappings are deterministic)
+**Random Seed:** 0–5 (six seeds)
 
-**Repository:** https://github.com/sokpheanal/ANLY735-Replication-Lab-02-sokpheanal-huynh
+**Repository:** https://github.com/sokpheanal/ANLY735-Replication-Lab-02
 
 # 1. Research Claim
 
-I reproduce Figure 3 of the survey, which visualizes how three categorical target representations turn a value-regression target into a distribution over a fixed support of atoms [@klein2026plasticity].
-Two-hot [@schrittwieser2020muzero] places mass on the two atoms bracketing a scalar target; HL-Gauss [@imani2018distributional] integrates a fixed-width Gaussian over each bin; and C51 [@bellemare2017distributional] propagates a full return distribution through the Bellman map and projects it back onto the support.
-The "result" being reproduced is the mass each scheme assigns across bins.
-There is no accuracy metric here; the object of interest is the shape of the induced distribution.
-This figure matters because reformulating regression as classification is one of the survey's mitigation families (Section 5.7) and connects directly to its regression-loss driver (Section 4.4): bounded cross-entropy gradients avoid the parameter-norm growth that error-proportional
-MSE gradients produce.
+Klein et al. is a survey, so it reports no original trained model or learning
+trajectory to reproduce. It instead synthesizes a phenomenon from the literature:
+a network trained continually under non-stationary targets progressively loses the
+capacity to fit new targets (loss of plasticity), a failure distinct from
+forgetting, associated with measurable pathologies such as dead or dormant units and
+parameter-norm growth, and mitigated by general-purpose regularization
+[@klein2026plasticity; @dohare2024loss; @lyle2023understanding]. This lab is a
+proxy replication of that phenomenon in a controlled experiment I build from
+scratch. The claim under test is narrow: continual training across a sequence of
+changing regression targets degrades new-target fitting relative to a freshly
+initialized network, that degradation tracks the accumulation of dead units, and an
+L2-penalty toward the initial weights restores it [@dohare2023maintaining]. The
+verdict applies only to this phenomenon in this setup, not to any finding reviewed
+by Klein et al.
 
 # 2. Replication Strategy
 
-This is a proxy/partial replication of the figure's content.
-Figure 3 depicts deterministic mappings defined by published equations rather than an experiment with data, so no original dataset or code is needed to reproduce it: implementing the three formulas exactly regenerates the figure.
-What is available is the mathematical definition of each scheme from its source paper and the survey's description.
-What I reproduce is the per-bin probability mass each scheme assigns for a chosen target and support.
-The original figure is schematic (and, per its caption, redrawn from @farebrother2024stop), and states no numeric support, target, or Gaussian width; I therefore choose and document those parameters.
-This approach is a meaningful check because it forces the definitions to be stated precisely enough to compute, which surfaces the exact parameters the schematic leaves implicit.
+This is a **Proxy** replication. No original dataset or code exists to reproduce,
+because the anchor is a survey, so I construct a minimal controlled experiment that
+induces target non-stationarity and observe what happens to learning after each
+change. The materials are a from-scratch NumPy multilayer perceptron and a synthetic
+regression dataset. What I reproduce is the qualitative phenomenon: degraded
+new-learning under non-stationarity, its dead-unit mechanism, and its mitigation by
+a general regularizer. The design instantiates the definition's own comparison, a
+continually trained network against a freshly initialized one on the current target
+(the generalization-gap framing of Berariu et al. [@berariu2021study], cited in the
+survey). What must differ is that this is supervised regression rather than deep RL,
+the non-stationarity is imposed rather than self-generated, and the scale is small.
+The approach is meaningful because the fresh baseline shows each target is learnable,
+so any gap isolates lost capacity rather than task difficulty, and because it lets
+the diagnosis rest on post-change learning rather than the size of the drop.
 
 # 3. Data
 
-There is no dataset.
-The inputs are the analyst-chosen quantities that define the mappings.
-The support is 5 atoms evenly spaced on [-1, 1], matching the paper’s schematic, with a bin width of 0.5.
-Two-hot acts on a scalar target y = -0.20, which falls between the atoms at -0.5 and 0. HL-Gauss is centered on the middle atom (0), matching the paper’s symmetric illustration, and uses a Gaussian of standard deviation 0.45, which is 0.9 of a bin width.
-C51 acts on a source return distribution Z (a five-point distribution peaked left of center, so the projection visibly shifts mass as in the paper's panel) and propagates it through the Bellman map with reward r = 0.00 and discount gamma = 0.90.
-Bin edges for the HL-Gauss integration are the midpoints between adjacent atoms, extended by half a bin at each end. All values are fixed constants in the script; none are learned, sampled, or drawn from external data, so there is no preprocessing and nothing restricted or personal in the repository.
+The data is synthetic and generated in the script. A fixed design matrix X of 1000
+samples and 16 standard-normal features is drawn once. Non-stationarity is introduced
+across 100 sequential tasks. Each task draws a new random teacher function,
+f_t(x) = sin(2.5 x·w1 / sqrt(d)) + 0.5 sin(5 x·w2 / sqrt(d)) with fresh random
+weight vectors w1 and w2, so the inputs are held fixed and only the input-to-target
+mapping changes. This is pure target non-stationarity, the supervised analog of the
+label-shuffling benchmarks the survey catalogs (Section 4.2, Table 2). Targets are
+bounded in roughly [-1.5, 1.5]. No preprocessing is applied, and nothing in the
+dataset is external, restricted, or personal.
 
 # 4. Method
 
-Each scheme is implemented directly from its defining equation.
-* Two-hot: for a target y between atoms z_lo and z_up, assign mass (z_up - y) / (z_up - z_lo) to z_lo and the complement to z_up, so exactly two atoms are nonzero.
-* HL-Gauss: place N(y, sigma^2) at the target and set each bin's mass to the Gaussian's integral over that bin, computed as a difference of normal CDFs across the bin edges, then renormalize so the mass truncated beyond the support is redistributed.
-* C51: for each source atom z_j with probability p_j, compute the Bellman image Tz_j = clip(r + gamma * z_j, V_min, V_max), locate it between two atoms, and split p_j between them by linear interpolation, accumulating the projected distribution.
-Projection indices are clipped to the support to guard against floating-point overshoot at the top atom.
-For each scheme, I report the full per-bin mass vector, the number of nonzero bins, and the entropy of the induced distribution as a compact summary of its concentration or spread. 
-Each distribution is asserted to sum to one.
-Software: Python 3.12 with NumPy, SciPy (for the normal CDF), pandas, and Matplotlib.
-The figure and the mass table regenerate from `code/reproduce_fig3.ipynb`.
+The model is a single-hidden-layer MLP (16-48-1) with He initialization, ReLU
+activations, a mean-squared-error objective, and plain minibatch SGD (batch size 64,
+learning rate 0.11, 40 epochs per task). ReLU with plain SGD and no normalization is
+the regime in which loss of plasticity is documented to arise, through unit death and
+weight growth. Three arms run on identical task streams. The **continual** network
+trains straight through all 100 tasks. The **fresh** network is reinitialized from
+scratch on every task and is the baseline of the plasticity definition. The
+**L2-Init** network is the continual network with an L2 penalty pulling weights
+toward their initial values (lambda = 0.01), a general regularizer the survey groups
+under those that often outperform domain-specific fixes (Section 5.3). Per task I
+record the best R^2 reached within the epoch budget (new-learning capacity), the
+epochs to reach R^2 = 0.4 (rate), and the fraction of dead ReLU units (mechanism);
+retention is the continual network's R^2 on task 1's targets after all tasks.
+Results are mean plus or minus standard deviation across seeds 0-5. Following the
+lab's instruction, plasticity is diagnosed from post-change learning, not from the
+size of the drop at a task boundary. Software is Python 3.12 with NumPy, pandas, and
+Matplotlib; everything regenerates from `code/plasticity_regression.py` and
+`code/run_analysis.py`.
 
 # 5. Results
 
-![Reproduction of Figure 3. Two-hot places all mass on the two atoms bracketing the target y. HL-Gauss integrates a fixed-width Gaussian over the bins. C51 carries the source distribution Z through the Bellman map r + gamma*Z and projects it back onto the support.](figures/fig3_categorical_losses.png)
+I organize the evidence by the Stability-Plasticity Diagnostic
+(CHANGE, RETENTION, NEW LEARNING, RATE, TRADEOFF).
 
-The three panels reproduce the behavior shown in the figure. 
-Two-hot assigns 0.40 and 0.60 to the atoms at -0.5 and 0 and zero everywhere else, so only two bins are active, and the distribution's entropy is 0.67 nats.
-HL-Gauss spreads mass in a bell around the target, with entropy 1.33 nats, acting like label smoothing on the categorical target.
-C51 propagates the whole source distribution: the Bellman map shifts it by the reward and contracts it by gamma = 0.90, and the projected distribution (entropy 1.35 nats) is displaced and reshaped relative to the source.
-All three distributions integrate to one.
-The contrast across panels is the figure's point: the schemes range from maximally sparse (two-hot) to fully distributional (C51), trading simplicity against how much of the target's structure the categorical representation preserves.
+![New-learning capacity across tasks (7-task rolling mean over the raw per-task values). The continual network rises early, then declines after roughly task 20, while the fresh baseline and the L2-Init arm hold steady.](figures/fig1_new_learning.png)
+
+![Mechanism: the fraction of dead ReLU units in the continual network rises monotonically toward 0.80, while L2-Init keeps every unit active.](figures/fig3_dead_units.png)
+
+**CHANGE.** Each task replaces the teacher function, so the network faces a new
+target over the same inputs. **NEW LEARNING.** The continual network's best fit on
+the new target falls from 0.56 on the early tasks to 0.21 on the last five, while the
+fresh network fits each late target to 0.49 and L2-Init to 0.42. The fresh-minus-continual
+gap in the final block is positive in all six seeds (range 0.16 to 0.50, mean 0.28,
+sd 0.11). Because the fresh network fits the same late targets well, the continual
+network's failure is not task difficulty but a loss of capacity to fit. **RATE.**
+Dead ReLU units in the continual network climb monotonically to 0.80, tracking the
+R^2 decline, and by the late tasks the continual network frequently fails to reach
+R^2 = 0.4 within the 40-epoch budget, whereas the fresh network reaches it. **RETENTION.**
+All three arms fit task 1 poorly at the end (R^2 near -0.10, -0.32, and -0.49 for
+continual, fresh, and L2-Init); this reflects forgetting driven by the changed
+targets and is a separate axis from plasticity, so I do not read it as the plasticity
+signal. **TRADEOFF.** L2-Init restores late new-learning to 0.42, close to the fresh
+ceiling, with zero dead units, at a modest cost to the continual network's early peak
+fit. That is the stability-plasticity tradeoff made visible: constraining the weights
+toward their initial values preserves the ability to keep learning.
 
 # 6. Compare
 
-| Evidence | Original Study | Replication |
-|---|---:|---:|
-| Two-hot active bins | two neighbors (schematic) | 2 (mass 0.40 / 0.60) |
-| HL-Gauss shape | Gaussian over bins (schematic) | bell, entropy 1.33 nats |
-| C51 target | full return distribution (schematic) | projected $\Phi(r+\gamma Z)$, entropy 1.35 nats |
+| Evidence | Literature (Klein et al. synthesis) | This experiment |
+|---|---|---|
+| New-learning under non-stationarity | degrades (loss of plasticity) | continual $R^2$ 0.56 to 0.21; gap 0.28, all 6 seeds positive |
+| Mechanism | dead/dormant units, norm growth | dead units 0 to 0.80, tracks the decline |
+| General regularization | restores plasticity | L2-Init late $R^2$ 0.42, zero dead units |
 
-Figure 3 is schematic.
-As per its caption, it was redrawn from @farebrother2024stop.
-Therefore, it reports no numeric values; the comparison, hence, is on mechanism and shape rather than on matching numbers.
-On that basis the reproduction is close but not complete, two-hot activates precisely two neighboring atoms, HL-Gauss produces the integrated-Gaussian spread, and C51 yields a projected return distribution.
-The one substantive difference is that the original leaves every parameter implicit, whereas the reproduction must fix the support, the target, the Gaussian width, and the C51 reward and discount.
-This makes visible a point the schematic hides: the shapes depend on parameters.
-HL-Gauss's spread is set entirely by sigma, and a narrower sigma would make it approach two-hot, while C51's displacement and width are set by r and gamma.
-The figure communicates a family of mechanisms; any single rendering, mine or the original, is one instance of it.
+All three qualitative signatures the survey synthesizes appear in the controlled
+experiment: new-learning degrades under sustained non-stationarity, the degradation
+tracks dead-unit accumulation, and a general regularizer restores it
+[@klein2026plasticity; @dohare2024loss; @dohare2023maintaining]. The comparison is
+qualitative by design; the survey reports no numbers for this setup, and the verdict
+applies to the induced-non-stationarity phenomenon here, not to any empirical result
+in Klein et al. One caveat bounds the claim: the effect is regime-dependent. At the
+learning rates that are standard for this task the continual network stayed fully
+plastic, and the loss only appeared once the step size was high enough to drive units
+to die. That fragility is itself consistent with the survey's observation that
+plasticity effects are specific to the training regime.
 
 # 7. Reproducibility Check
 
@@ -110,31 +157,46 @@ The figure communicates a family of mechanisms; any single rendering, mine or th
 
 **What was the greatest reproducibility challenge you encountered?**
 
-The figure specifies none of the quantities needed to draw it: the number of atoms, the value range, the scalar target, the HL-Gauss standard deviation, and the C51 reward, discount, and source distribution are all absent.
-Because the induced shapes depend on these, reproducing the figure meant recovering each formula from its source paper and choosing defensible parameters, then documenting them so the result is regenerable.
-A minor implementation issue was floating-point overshoot in the C51 projection at the top atom, which required clipping the projection index.
+The result is conditional on a narrow training regime that sits close to a numerical
+boundary. At learning rates of 0.13 and above the regression diverged to NaN, and at
+low learning rates no plasticity loss appeared at all; eliciting a gradual,
+non-divergent loss required jointly tuning the learning rate, the target frequency,
+and the hidden width, then reporting the full six-seed spread, because the per-task
+R^2 is noisy when every task is a different random target. Documenting the exact
+configuration and the seed range is therefore essential: a researcher running an
+ostensibly identical experiment at a different step size could reasonably see no
+effect.
 
 # 8. Extend
 
-The figure shows the representations but not why the survey ties them to plasticity (Section 4.4): regression gradients scale with prediction error and can grow without bound for large-mean targets, driving parameter-norm growth, whereas cross-entropy gradients on a categorical target are bounded regardless of target magnitude.
-I would reproduce that claim directly by computing, for a single output unit, the gradient magnitude of the MSE loss and of the cross-entropy loss against a two-hot or HL-Gauss target as the target value is swept across a wide range, and plotting the two.
-The prediction is that the MSE gradient grows linearly with the target while the cross-entropy gradient saturates.
-This extends the static figure into a test of the mechanism the survey actually cares about, showing not just what the categorical targets look like but why reformulating regression as classification mitigates the parameter-norm growth associated with plasticity loss.
+A natural extension targets the mechanism directly. The survey ties categorical-loss
+reformulation, two-hot and HL-Gauss, to mitigating plasticity loss because
+cross-entropy gradients stay bounded while error-proportional MSE gradients grow with
+the target and drive parameter-norm growth (Sections 4.4 and 5.7). I would add a
+categorical-loss arm that trains the same network with an HL-Gauss target on binned
+outputs, alongside the existing L2-Init arm, and test whether reformulating the
+regression as classification restores new-learning rate as effectively as L2-Init.
+That isolates whether bounded gradients alone are sufficient to preserve plasticity,
+and it links the survey's regression-loss driver to the dead-unit mechanism this
+experiment measures.
 
 # Replication Verdict
 
 Select the statement that best represents your findings:
 
-- [ ] **Reproduced** — The central result was substantially reproduced.
-- [x] **Partially Reproduced** — Some findings were reproduced, but meaningful differences remain.
-- [ ] **Not Reproduced** — The central result was not reproduced.
-- [ ] **Not Directly Comparable** — A proxy replication produced useful methodological insight, but numerical comparison is not appropriate.
+- [x] **Reproduced** — The phenomenon under study was reproduced in the controlled experiment.
+- [ ] **Partially Reproduced** — Some aspects were reproduced, but meaningful differences remain.
+- [ ] **Not Reproduced** — The phenomenon did not appear.
+- [ ] **Inconclusive** — The evidence does not support a determination.
 
-Each of the three categorical mappings is reproduced exactly at the level of method and behavior: two-hot places mass on the two bracketing atoms by linear interpolation, HL-Gauss integrates a fixed-width Gaussian over the bins, and C51 projects the Bellman image of a return distribution onto the support.
-The redrawn figure also matches the paper's two-tier layout, color scheme, and annotations.
-It is a partial rather than complete reproduction because Figure 3 is a hand-drawn schematic, redrawn from Farebrother et al., with no underlying data: the illustrative specifics of the C51 panel in particular, namely the exact source distribution and bar heights and the offset-bar-with-horizontal-connector depiction of the Bellman shift, cannot be derived from the definitions and were only approximated.
-The verdict is therefore Partially Reproduced.
-The methods and their qualitative structure reproduce faithfully, while an exact visual match to an undocumented schematic is not attainable by computation and would amount to tracing rather than replication.
+Within the narrow scope this lab defines, the phenomenon reproduced in every seed:
+continual training across changing regression targets degraded the capacity to fit
+new targets relative to a freshly initialized network, the degradation tracked the
+accumulation of dead units, and a general regularizer restored it. The verdict
+applies to this controlled experiment as evidence consistent with the
+stability-plasticity phenomenon synthesized by Klein et al., not to any original
+experiment, dataset, or figure in the survey, and the magnitude of the effect is
+regime-dependent rather than universal.
 
 # References
 

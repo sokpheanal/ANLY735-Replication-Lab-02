@@ -1,48 +1,55 @@
-# Replication Laboratory #2 — Reproducing Figure 3
+# Replication Laboratory #2 — Can the Model Keep Learning?
 
-Direct reproduction of Figure 3 in Klein et al. (2026), *Plasticity Loss in Deep
-Reinforcement Learning: A Survey*: the visualization of categorical target
-representations for value-based RL.
+A from-scratch controlled experiment and a **proxy replication** of the
+stability-plasticity phenomenon synthesized in Klein et al. (2026), *Plasticity Loss
+in Deep Reinforcement Learning: A Survey*. The survey is a literature review, so
+there is no original experiment to reproduce; this lab builds a controlled learning
+experiment that induces non-stationarity and applies the Stability-Plasticity
+Diagnostic (CHANGE, RETENTION, NEW LEARNING, RATE, TRADEOFF) to the resulting
+behavior.
 
-The figure contrasts three ways of turning a value-regression target into a
-categorical target over a fixed support of atoms:
+## Experiment
 
-- **Two-hot** (Schrittwieser et al., 2020): mass on the two atoms bracketing a
-  scalar target.
-- **HL-Gauss** (Imani & White, 2018): a fixed-width Gaussian integrated over each bin.
-- **C51** (Bellemare et al., 2017): a full return distribution propagated through
-  the Bellman map `r + gamma*Z` and projected back onto the support.
+A single-hidden-layer MLP regresses a sequence of 100 random teacher functions over
+fixed inputs (pure target non-stationarity). Three arms:
 
-Each mapping is deterministic and defined by a published equation, so the
-reproduction needs no data, no training, and no random seed.
+- **continual** — one network trained straight through all tasks.
+- **fresh** — reinitialized each task (the plasticity-definition baseline).
+- **L2-Init** — continual network regularized toward its initial weights (the
+  mitigation arm).
 
-## Committed source (everything below is regenerated)
+Plasticity is diagnosed from post-change learning (best R^2 and rate on each new
+target), not from the size of the drop.
+
+## Committed source (everything else regenerates)
 
 ```text
 README.md
 replication-lab.qmd            # the report (renders to Word)
 references.bib
+custom-reference.docx          # Word styling for the render
+apa.csl                        # APA citation style
 requirements.txt
 .gitignore
 code/
-  reproduce_fig3.ipynb         # implements two-hot, HL-Gauss, C51; writes figure + table
+  plasticity_regression.py     # experiment: MLP, three arms, task stream
+  run_analysis.py              # runs all seeds, writes results/ and figures/
 ```
 
 Generated at run time (git-ignored):
 
 ```text
-figures/fig3_categorical_losses.png    # created by the notebook
-results/categorical_masses.csv         # created by the notebook
-replication-lab.docx                    # created by `quarto render`
+results/metrics.csv results/summary.json results/out.pkl
+figures/fig1_new_learning.png figures/fig2_rate.png figures/fig3_dead_units.png
+replication-lab.docx
 ```
 
 ## Reproduce
 
 ```bash
 pip install -r requirements.txt
-# run the notebook (writes figures/ and results/):
-jupyter nbconvert --to notebook --execute --inplace code/reproduce_fig3.ipynb
-# or open code/reproduce_fig3.ipynb in Jupyter and Run All
+cd code
+python3 run_analysis.py --force    # ~90s on CPU; writes results/ and figures/
 ```
 
 Then render the report:
@@ -51,12 +58,11 @@ Then render the report:
 quarto render replication-lab.qmd --to docx
 ```
 
-The notebook creates the figure and table; `quarto render` builds the `.docx` and
-embeds the figure, so run the notebook before rendering.
+## Configuration
 
-## Parameters
-
-Fixed at the top of `code/reproduce_fig3.ipynb`: support of 5 atoms on [-1, 1];
-scalar target y = 0.20; HL-Gauss sigma = 1 bin width; C51 reward r = 0.10 and
-discount gamma = 0.80. The original figure is schematic and states none of these,
-so they are documented choices; see report Sections 6 and 7.
+Fixed in `code/plasticity_regression.py` (`DEFAULT_CFG`): 1000 samples, 16 features,
+hidden width 48, batch 64, 100 tasks, 40 epochs/task, learning rate 0.11, target
+frequency 2.5, R^2 threshold 0.4, L2-Init lambda 0.01. Seeds 0-5 in
+`run_analysis.py`. The effect is regime-dependent: at low learning rates the
+continual network stays plastic; at rates above ~0.12 the regression diverges. See
+report Sections 6 and 7.
