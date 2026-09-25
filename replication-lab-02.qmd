@@ -1,0 +1,187 @@
+---
+title: "Predictive AI Replication Laboratory"
+subtitle: "ANLY 735 – Research Seminar in Predictive AI"
+author: "Sokpheanal Huynh"
+date: today
+format:
+  docx:
+    toc: false
+    reference-doc: custom-reference.docx
+bibliography: references.bib
+csl: apa.csl
+---
+
+# Study
+
+**Article:** Plasticity Loss in Deep Reinforcement Learning: A Survey
+
+**Authors:** Klein, Luther, McAuliffe, Miklautz, Plant, and Tschiatschek
+
+**DOI/URL:** arXiv:2411.04832v3, 2026
+
+**Replication Type:** Direct
+
+**Computational Environment:** Python 3.12
+
+**Primary Packages:** NumPy 2.4, SciPy 1.17, Matplotlib 3.10, pandas 3.0
+
+**Random Seed:** Not applicable (the mappings are deterministic)
+
+**Repository:** [your GitHub Classroom URL]
+
+# 1. Research Claim
+
+I reproduce Figure 3 of the survey, which visualizes how three categorical target
+representations turn a value-regression target into a distribution over a fixed
+support of atoms [@klein2026plasticity]. Two-hot [@schrittwieser2020muzero] places
+mass on the two atoms bracketing a scalar target; HL-Gauss [@imani2018distributional]
+integrates a fixed-width Gaussian over each bin; and C51 [@bellemare2017distributional]
+propagates a full return distribution through the Bellman map and projects it back
+onto the support. The "result" being reproduced is the mass each scheme assigns
+across bins. There is no accuracy metric here; the object of interest is the shape
+of the induced distribution. This figure matters because reformulating regression
+as classification is one of the survey's mitigation families (Section 5.7) and
+connects directly to its regression-loss driver (Section 4.4): bounded
+cross-entropy gradients avoid the parameter-norm growth that error-proportional
+MSE gradients produce.
+
+# 2. Replication Strategy
+
+This is a **Direct** replication of the figure's content. Figure 3 depicts
+deterministic mappings defined by published equations rather than an experiment
+with data, so no original dataset or code is needed to reproduce it: implementing
+the three formulas exactly regenerates the figure. What is available is the
+mathematical definition of each scheme from its source paper and the survey's
+description. What I reproduce is the per-bin probability mass each scheme assigns
+for a chosen target and support. What must differ is that the original figure is
+schematic (and, per its caption, redrawn from Farebrother et al. [@farebrother2024stop]),
+stating no numeric support, target, or Gaussian width; I therefore choose and
+document those parameters. The approach is a meaningful check because it forces
+the definitions to be stated precisely enough to compute, which surfaces exactly
+the parameters the schematic leaves implicit.
+
+# 3. Data
+
+There is no dataset. The inputs are the analyst-chosen quantities that define the
+mappings. The support is 5 atoms evenly spaced on the interval [-1, 1], matching the paper's
+schematic, giving a bin width of 0.5. Two-hot and HL-Gauss act on a single scalar
+target, set to y = 0.20, which falls between the atoms at 0 and 0.5. HL-Gauss uses
+a Gaussian of standard deviation 0.5, that is one bin width. C51 acts on a source
+return distribution Z (a symmetric five-point distribution peaked at the center
+atom) and propagates it through the Bellman map with reward r = 0.10 and discount
+gamma = 0.80. Bin edges for the HL-Gauss integration are the midpoints between
+adjacent atoms, extended by half a bin at each end. All values are fixed constants
+in the script; none are learned, sampled, or drawn from external data, so there is
+no preprocessing and nothing restricted or personal in the repository.
+
+# 4. Method
+
+Each scheme is implemented directly from its defining equation. **Two-hot**: for a
+target y between atoms z_lo and z_up, assign mass (z_up - y) / (z_up - z_lo) to z_lo
+and the complement to z_up, so exactly two atoms are nonzero. **HL-Gauss**: place
+N(y, sigma^2) at the target and set each bin's mass to the Gaussian's integral over
+that bin, computed as a difference of normal CDFs across the bin edges, then
+renormalize so the mass truncated beyond the support is redistributed. **C51**: for
+each source atom z_j with probability p_j, compute the Bellman image Tz_j = clip(r +
+gamma * z_j, V_min, V_max), locate it between two atoms, and split p_j between them
+by linear interpolation, accumulating the projected distribution. Projection indices
+are clipped to the support to guard against floating-point overshoot at the top atom.
+I report, for each scheme, the full per-bin mass vector, the number of nonzero bins,
+and the entropy of the induced distribution as a compact summary of how concentrated
+or spread it is. Each distribution is asserted to sum to one. Software: Python 3.12
+with NumPy, SciPy (for the normal CDF), pandas, and Matplotlib. The figure and the
+mass table regenerate from `code/reproduce_fig3.ipynb`.
+
+# 5. Results
+
+![Reproduction of Figure 3. Two-hot places all mass on the two atoms bracketing the target y. HL-Gauss integrates a fixed-width Gaussian over the bins. C51 carries the source distribution Z through the Bellman map r + gamma*Z and projects it back onto the support.](figures/fig3_categorical_losses.png)
+
+The three panels reproduce the behavior the figure depicts. Two-hot assigns 0.60
+and 0.40 to the atoms at 0 and 0.5 and zero everywhere else, so only two bins are
+active and the distribution's entropy is 0.67 nats. HL-Gauss spreads mass in a bell
+around the target, with entropy 1.38 nats, acting like label smoothing on the
+categorical target. C51 propagates the whole source distribution: the Bellman map
+shifts it by the reward and contracts it by gamma = 0.80, and the projected
+distribution (entropy 1.33 nats) is displaced and reshaped relative to the source. All three distributions integrate to one. The contrast across panels is the
+figure's point: the schemes range from maximally sparse (two-hot) to fully
+distributional (C51), trading simplicity against how much of the target's structure
+the categorical representation preserves.
+
+# 6. Compare
+
+| Evidence | Original Study | Replication |
+|---|---:|---:|
+| Two-hot active bins | two neighbors (schematic) | 2 (mass 0.60 / 0.40) |
+| HL-Gauss shape | Gaussian over bins (schematic) | bell, entropy 1.38 nats |
+| C51 target | full return distribution (schematic) | projected $\Phi(r+\gamma Z)$, entropy 1.33 nats |
+
+Figure 3 is schematic and, per its caption, redrawn from Farebrother et al.
+[@farebrother2024stop], so it reports no numeric values; the comparison is
+therefore on mechanism and shape rather than on matching numbers. On that basis the
+reproduction is exact: two-hot activates precisely two neighboring atoms, HL-Gauss
+produces the integrated-Gaussian spread, and C51 yields a projected return
+distribution. The one substantive difference is that the original leaves every
+parameter implicit, whereas the reproduction must fix the support, the target, the
+Gaussian width, and the C51 reward and discount. This makes visible a point the
+schematic hides: the shapes are parameter-dependent. HL-Gauss's spread is set
+entirely by sigma, and a narrower sigma would make it approach two-hot, while C51's
+displacement and width are set by r and gamma. The figure communicates a family of
+mechanisms; any single rendering, mine or the original, is one instance of it.
+
+# 7. Reproducibility Check
+
+- [x] Data source documented
+- [x] Code runs from beginning to end
+- [x] Computational environment identified
+- [x] Software/packages documented
+- [x] Package versions documented when relevant
+- [x] Random seed documented when applicable
+- [x] Key preprocessing steps documented
+- [x] Evaluation procedure documented
+- [x] Repository README provides reproduction instructions
+
+**What was the greatest reproducibility challenge you encountered?**
+
+The figure specifies none of the quantities needed to draw it: the number of atoms,
+the value range, the scalar target, the HL-Gauss standard deviation, and the C51
+reward, discount, and source distribution are all absent. Because the induced shapes
+depend on these, reproducing the figure meant recovering each formula from its
+source paper and choosing defensible parameters, then documenting them so the result
+is regenerable. A minor implementation issue was floating-point overshoot in the C51
+projection at the top atom, which required clipping the projection index.
+
+# 8. Extend
+
+The figure shows the representations but not why the survey ties them to plasticity
+(Section 4.4): regression gradients scale with prediction error and can grow without
+bound for large-mean targets, driving parameter-norm growth, whereas cross-entropy
+gradients on a categorical target are bounded regardless of target magnitude. I
+would reproduce that claim directly by computing, for a single output unit, the
+gradient magnitude of the MSE loss and of the cross-entropy loss against a two-hot
+or HL-Gauss target as the target value is swept across a wide range, and plotting
+the two. The prediction is that the MSE gradient grows linearly with the target
+while the cross-entropy gradient saturates. This extends the static figure into a
+test of the mechanism the survey actually cares about, showing not just what the
+categorical targets look like but why reformulating regression as classification
+mitigates the parameter-norm growth associated with plasticity loss.
+
+# Replication Verdict
+
+Select the statement that best represents your findings:
+
+- [x] **Reproduced** — The central result was substantially reproduced.
+- [ ] **Partially Reproduced** — Some findings were reproduced, but meaningful differences remain.
+- [ ] **Not Reproduced** — The central result was not reproduced.
+- [ ] **Not Directly Comparable** — A proxy replication produced useful methodological insight, but numerical comparison is not appropriate.
+
+Each of the three categorical mappings, computed from its defining equation,
+reproduces the behavior Figure 3 depicts: two-hot activates the two bracketing
+atoms, HL-Gauss integrates a Gaussian across bins, and C51 projects the Bellman
+image of a return distribution. Because the original is schematic and gives no
+numbers, the match is on mechanism and shape rather than exact values, but on that
+standard the reproduction is complete.
+
+# References
+
+::: {#refs}
+:::
