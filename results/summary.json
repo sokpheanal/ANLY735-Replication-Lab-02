@@ -1,0 +1,45 @@
+{
+  "config": {
+    "n_samples": 1000,
+    "n_features": 16,
+    "n_hidden": 48,
+    "batch_size": 64,
+    "n_tasks": 100,
+    "epochs_per_task": 40,
+    "lr": 0.11,
+    "scale": 1.0,
+    "threshold": 0.4,
+    "l2init_lambda": 0.01,
+    "freq": 2.5
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "continual_early_r2": 0.5612882206239704,
+  "continual_late_r2": 0.2081299546149639,
+  "fresh_late_r2": 0.4902103484224198,
+  "l2init_late_r2": 0.4215453821368234,
+  "continual_dead_late": 0.8006944444444445,
+  "l2init_dead_late": 0.0,
+  "continual_retention": -0.09563512528970575,
+  "fresh_retention": -0.3204245462797834,
+  "l2init_retention": -0.48897460819520067,
+  "continual_late_steps": 23.75,
+  "fresh_late_steps": 24.946666666666665,
+  "l2init_late_steps": 20.933333333333334,
+  "late_gap_mean": 0.2820803938074559,
+  "late_gap_std": 0.10710014204797046,
+  "late_gap_per_seed": [
+    0.235,
+    0.499,
+    0.32,
+    0.162,
+    0.238,
+    0.239
+  ]
+}
