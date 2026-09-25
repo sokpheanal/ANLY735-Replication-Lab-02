@@ -61,10 +61,10 @@ Bin edges for the HL-Gauss integration are the midpoints between adjacent atoms,
 
 Each scheme is implemented directly from its defining equation.
 **Two-hot**: for a target y between atoms z_lo and z_up, assign mass (z_up - y) / (z_up - z_lo) to z_lo and the complement to z_up, so exactly two atoms are nonzero.
- **HL-Gauss**: place N(y, sigma^2) at the target and set each bin's mass to the Gaussian's integral over that bin, computed as a difference of normal CDFs across the bin edges, then renormalize so the mass truncated beyond the support is redistributed.
- **C51**: for each source atom z_j with probability p_j, compute the Bellman image Tz_j = clip(r + gamma * z_j, V_min, V_max), locate it between two atoms, and split p_j between them by linear interpolation, accumulating the projected distribution.
- Projection indices are clipped to the support to guard against floating-point overshoot at the top atom.
- I report, for each scheme, the full per-bin mass vector, the number of nonzero bins, and the entropy of the induced distribution as a compact summary of how concentrated or spread it is. Each distribution is asserted to sum to one.
+**HL-Gauss**: place N(y, sigma^2) at the target and set each bin's mass to the Gaussian's integral over that bin, computed as a difference of normal CDFs across the bin edges, then renormalize so the mass truncated beyond the support is redistributed.
+**C51**: for each source atom z_j with probability p_j, compute the Bellman image Tz_j = clip(r + gamma * z_j, V_min, V_max), locate it between two atoms, and split p_j between them by linear interpolation, accumulating the projected distribution.
+Projection indices are clipped to the support to guard against floating-point overshoot at the top atom.
+I report, for each scheme, the full per-bin mass vector, the number of nonzero bins, and the entropy of the induced distribution as a compact summary of how concentrated or spread it is. Each distribution is asserted to sum to one.
 Software: Python 3.12 with NumPy, SciPy (for the normal CDF), pandas, and Matplotlib.
 The figure and the mass table regenerate from `code/reproduce_fig3.ipynb`.
 
@@ -108,28 +108,18 @@ The figure communicates a family of mechanisms; any single rendering, mine or th
 
 **What was the greatest reproducibility challenge you encountered?**
 
-The figure specifies none of the quantities needed to draw it: the number of atoms,
-the value range, the scalar target, the HL-Gauss standard deviation, and the C51
-reward, discount, and source distribution are all absent. Because the induced shapes
-depend on these, reproducing the figure meant recovering each formula from its
-source paper and choosing defensible parameters, then documenting them so the result
-is regenerable. A minor implementation issue was floating-point overshoot in the C51
-projection at the top atom, which required clipping the projection index.
+The figure specifies none of the quantities needed to draw it: the number of atoms, the value range, the scalar target, the HL-Gauss standard deviation, and the C51 reward, discount, and source distribution are all absent.
+Because the induced shapes depend on these, reproducing the figure meant recovering each formula from its
+source paper and choosing defensible parameters, then documenting them so the result is regenerable.
+A minor implementation issue was floating-point overshoot in the C51 projection at the top atom, which required clipping the projection index.
 
 # 8. Extend
 
-The figure shows the representations but not why the survey ties them to plasticity
-(Section 4.4): regression gradients scale with prediction error and can grow without
-bound for large-mean targets, driving parameter-norm growth, whereas cross-entropy
-gradients on a categorical target are bounded regardless of target magnitude. I
-would reproduce that claim directly by computing, for a single output unit, the
-gradient magnitude of the MSE loss and of the cross-entropy loss against a two-hot
-or HL-Gauss target as the target value is swept across a wide range, and plotting
-the two. The prediction is that the MSE gradient grows linearly with the target
-while the cross-entropy gradient saturates. This extends the static figure into a
-test of the mechanism the survey actually cares about, showing not just what the
-categorical targets look like but why reformulating regression as classification
-mitigates the parameter-norm growth associated with plasticity loss.
+The figure shows the representations but not why the survey ties them to plasticity (Section 4.4): regression gradients scale with prediction error and can grow without bound for large-mean targets, driving parameter-norm growth, whereas cross-entropy gradients on a categorical target are bounded regardless of target magnitude.
+I would reproduce that claim directly by computing, for a single output unit, the gradient magnitude of the MSE loss and of the cross-entropy loss against a two-hot or HL-Gauss target as the target value is swept across a wide range, and plotting
+the two.
+The prediction is that the MSE gradient grows linearly with the target while the cross-entropy gradient saturates.
+This extends the static figure into a test of the mechanism the survey actually cares about, showing not just what the categorical targets look like but why reformulating regression as classification mitigates the parameter-norm growth associated with plasticity loss.
 
 # Replication Verdict
 
