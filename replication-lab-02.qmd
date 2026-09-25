@@ -19,7 +19,7 @@ csl: apa.csl
 
 **DOI/URL:** arXiv:2411.04832v3, 2026
 
-**Replication Type:** Direct
+**Replication Type:** Partially
 
 **Computational Environment:** Python 3.12
 
