@@ -27,7 +27,7 @@ csl: apa.csl
 
 **Random Seed:** Not applicable (the mappings are deterministic)
 
-**Repository:** https://github.com/sokpheanal/ANLY735-Replication-Lab-02
+**Repository:** https://github.com/sokpheanal/ANLY735-Replication-Lab-02-sokpheanal-huynh
 
 # 1. Research Claim
 
