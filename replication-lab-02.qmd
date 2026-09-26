@@ -151,8 +151,7 @@ Select the statement that best represents your findings:
 
 Within the narrow scope this lab defines, the phenomenon was reproduced in every seed.
 Continual training across changing regression targets degraded the capacity to fit new targets relative to a freshly initialized network; the degradation tracked the accumulation of dead units, and a general regularizer restored it.
-The verdict applies to this controlled experiment as evidence consistent with the stability-plasticity phenomenon synthesized by @klein2026plasticity, not to any original experiment, dataset, or figure in the survey, and the magnitude of the effect is
-regime-dependent rather than universal.
+The verdict applies to this controlled experiment as evidence consistent with the stability-plasticity phenomenon synthesized by @klein2026plasticity, not to any original experiment, dataset, or figure in the survey, and the magnitude of the effect is regime-dependent rather than universal.
 
 # References
 
